@@ -26,6 +26,13 @@ data/processed/*
 experiments/outputs/*
 !experiments/outputs/.gitkeep
 
+# LaTeX build artifacts (the compiled report.pdf IS committed)
+reports/*.aux
+reports/*.log
+reports/*.out
+reports/*.toc
+reports/*.synctex.gz
+
 # OS / editor
 .DS_Store
 .vscode/

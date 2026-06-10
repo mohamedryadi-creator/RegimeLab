@@ -141,7 +141,9 @@ walk-forward refits, gating buy-and-hold):
 | HMM K=3 (flat in top state only) | 0.65 | −52% | 4.1× |
 
 All phases plus the v2/v3 extensions complete — full findings and figures in
-[`reports/report.md`](reports/report.md). Headlines (now with a proper cash leg and
+[`reports/report.md`](reports/report.md), also available as an academic PDF
+([`reports/report.pdf`](reports/report.pdf), source `reports/report.tex`,
+rebuild with `make -C reports`; requires [Tectonic](https://tectonic-typesetting.github.io)). Headlines (now with a proper cash leg and
 excess-return Sharpe): regime gating is *drawdown insurance*, not Sharpe enhancement —
 every paired-bootstrap 95% interval on a Sharpe difference includes zero, stable
 across bootstrap block lengths and walk-forward schedules. The HMM never beat the

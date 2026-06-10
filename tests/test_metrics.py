@@ -46,6 +46,22 @@ def test_hit_ratio_excludes_flat_periods():
     assert metrics.hit_ratio(r) == pytest.approx(2 / 3)
 
 
+def test_sharpe_with_rf_series_equals_shifted_scalar():
+    idx = pd.bdate_range("2020-01-01", periods=2)
+    r = pd.Series([0.10, -0.05], index=idx)
+    rf = pd.Series(0.001, index=idx)
+    expected = metrics.sharpe_ratio(r - 0.001)
+    assert metrics.sharpe_ratio(r, rf=rf) == pytest.approx(expected)
+
+
+def test_rf_series_missing_dates_fails_loudly():
+    idx = pd.bdate_range("2020-01-01", periods=3)
+    r = pd.Series([0.01, 0.02, -0.01], index=idx)
+    rf = pd.Series(0.001, index=idx[:2])
+    with pytest.raises(ValueError, match="rf series missing"):
+        metrics.sharpe_ratio(r, rf=rf)
+
+
 def test_degenerate_series_give_nan_not_errors():
     empty = pd.Series(dtype=float)
     constant = pd.Series([0.0, 0.0, 0.0])

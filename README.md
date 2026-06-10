@@ -112,6 +112,11 @@ modeling and data-source choices.
       (`ProbabilityScaledStrategy`); multi-asset universe (SPY/TLT/GLD) with per-asset
       regime models; `regimelab.plotting` + four analysis notebooks producing the
       report's figures (`reports/figures/`).
+- [x] **Extensions (v3).** Cash leg: flat weight earns the lagged T-bill rate
+      (`load_risk_free`, engine `cash_returns`, excess-return Sharpe); no-trade band
+      (`BandedStrategy`) swept over δ to treat filtered-state flicker; nuisance
+      sensitivity (bootstrap block length, walk-forward schedule) in the robustness
+      runner.
 
 ## Running the baselines
 
@@ -135,12 +140,12 @@ walk-forward refits, gating buy-and-hold):
 | HMM K=2 (flat in high-vol state) | 0.81 | −23% | 9.4× |
 | HMM K=3 (flat in top state only) | 0.65 | −52% | 4.1× |
 
-All phases plus the v2 extensions complete — full findings and figures in
-[`reports/report.md`](reports/report.md). Headlines: regime gating is *drawdown
-insurance* (−55% → −23/34% on SPY, consistent across sub-periods), not Sharpe
-enhancement — every paired-bootstrap 95% interval on a Sharpe difference includes
-zero. The HMM never beat the volatility heuristic, and on a diversified SPY/TLT/GLD
-portfolio (Sharpe 0.96 unhedged) regime gating added nothing or hurt: diversification
-already does the risk-control job. Where a probabilistic model is used, soft
-probability scaling dominates hard thresholding multi-asset (the strongest bootstrap
-signal in the study).
+All phases plus the v2/v3 extensions complete — full findings and figures in
+[`reports/report.md`](reports/report.md). Headlines (now with a proper cash leg and
+excess-return Sharpe): regime gating is *drawdown insurance*, not Sharpe enhancement —
+every paired-bootstrap 95% interval on a Sharpe difference includes zero, stable
+across bootstrap block lengths and walk-forward schedules. The HMM never beat the
+volatility heuristic, and diversified SPY/TLT/GLD buy-and-hold remains unbeaten. The
+v3 result: a no-trade band on probability-scaled exposure fixes the HMM's turnover
+problem — multi-asset, δ=0.10 nearly matches buy-and-hold's Sharpe with half the
+drawdown at 4.9×/yr turnover (ordering: hard gate < soft scaling < banded scaling).

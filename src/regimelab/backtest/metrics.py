@@ -38,13 +38,34 @@ def annualized_volatility(
     return float(r.std(ddof=1) * np.sqrt(periods_per_year))
 
 
+def excess_returns(
+    returns: pd.Series,
+    rf: float | pd.Series,
+    periods_per_year: int = TRADING_DAYS_PER_YEAR,
+) -> pd.Series:
+    """Returns net of the risk-free rate.
+
+    ``rf`` is either an annualized scalar (converted to per-period) or a
+    per-period Series (e.g. from ``load_risk_free``), which must cover every
+    date in ``returns`` — missing dates fail loudly.
+    """
+    r = returns.dropna()
+    if isinstance(rf, pd.Series):
+        aligned = rf.reindex(r.index)
+        if aligned.isna().any():
+            missing = aligned.index[aligned.isna()][:3].tolist()
+            raise ValueError(f"rf series missing dates present in returns: {missing}.")
+        return r - aligned
+    return r - rf / periods_per_year
+
+
 def sharpe_ratio(
     returns: pd.Series,
     periods_per_year: int = TRADING_DAYS_PER_YEAR,
-    rf: float = 0.0,
+    rf: float | pd.Series = 0.0,
 ) -> float:
-    """Annualized Sharpe ratio; ``rf`` is an annualized rate, converted to per-period."""
-    r = returns.dropna() - rf / periods_per_year
+    """Annualized Sharpe ratio on excess returns (see :func:`excess_returns`)."""
+    r = excess_returns(returns, rf, periods_per_year)
     if len(r) < 2:
         return np.nan
     sd = float(r.std(ddof=1))
@@ -56,14 +77,14 @@ def sharpe_ratio(
 def sortino_ratio(
     returns: pd.Series,
     periods_per_year: int = TRADING_DAYS_PER_YEAR,
-    rf: float = 0.0,
+    rf: float | pd.Series = 0.0,
 ) -> float:
     """Annualized Sortino ratio with downside deviation from the full sample.
 
     Downside deviation is sqrt(mean(min(r, 0)^2)) — zeros count, so a series
     that is rarely negative is rewarded.
     """
-    r = returns.dropna() - rf / periods_per_year
+    r = excess_returns(returns, rf, periods_per_year)
     if len(r) < 2:
         return np.nan
     downside = float(np.sqrt(np.mean(np.minimum(r, 0.0) ** 2)))
@@ -107,13 +128,18 @@ def summary(
     turnover: pd.Series | None = None,
     periods_per_year: int = TRADING_DAYS_PER_YEAR,
     name: str = "strategy",
+    rf: float | pd.Series = 0.0,
 ) -> pd.DataFrame:
-    """One-row summary table; the uniform output format for all experiments."""
+    """One-row summary table; the uniform output format for all experiments.
+
+    ``rf`` affects Sharpe/Sortino only; returns, volatility, and drawdowns
+    stay absolute.
+    """
     row = {
         "ann_return": annualized_return(returns, periods_per_year),
         "ann_volatility": annualized_volatility(returns, periods_per_year),
-        "sharpe": sharpe_ratio(returns, periods_per_year),
-        "sortino": sortino_ratio(returns, periods_per_year),
+        "sharpe": sharpe_ratio(returns, periods_per_year, rf=rf),
+        "sortino": sortino_ratio(returns, periods_per_year, rf=rf),
         "max_drawdown": max_drawdown(returns),
         "hit_ratio": hit_ratio(returns),
         "n_periods": int(returns.dropna().shape[0]),

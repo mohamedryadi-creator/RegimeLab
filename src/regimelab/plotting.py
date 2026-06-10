@@ -161,6 +161,33 @@ def subperiod_bars(sharpe: pd.DataFrame, title: str = "Sharpe by sub-period"):
     return fig
 
 
+def turnover_sharpe_frontier(
+    table: pd.DataFrame, title: str = "Turnover vs. Sharpe (net of costs)"
+):
+    """Labeled scatter of annual turnover against Sharpe, one point per strategy.
+
+    Expects columns ``avg_annual_turnover`` and ``sharpe``, indexed by strategy
+    name — e.g. the @headline-cost rows of an experiment summary table.
+    """
+    plt = _plt()
+    fig, ax = plt.subplots(figsize=(7.5, 5))
+    ax.scatter(table["avg_annual_turnover"], table["sharpe"], color="tab:blue", zorder=3)
+    for name, row in table.iterrows():
+        ax.annotate(
+            str(name),
+            (row["avg_annual_turnover"], row["sharpe"]),
+            textcoords="offset points",
+            xytext=(6, 4),
+            fontsize=8,
+        )
+    ax.set_xlabel("average annual turnover (×)")
+    ax.set_ylabel("Sharpe (annualized)")
+    ax.set_title(title)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    return fig
+
+
 def save_figure(fig, path: str | Path, dpi: int = 150) -> Path:
     """Save a figure, creating parent directories; returns the path."""
     path = Path(path)

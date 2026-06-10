@@ -62,6 +62,52 @@ def test_engine_matches_manual_computation():
     assert result.net_returns.tolist() == pytest.approx(net)
 
 
+def test_cash_leg_flat_earns_exactly_rf():
+    r = make_returns(100)
+    rf = pd.Series(0.0002, index=r.index)
+    pos = pd.Series(0.0, index=r.index)
+    result = run_backtest(pos, r, cash_returns=rf)
+    assert result.net_returns.tolist() == pytest.approx([0.0002] * len(r))
+    assert (result.turnover == 0).all()
+
+
+def test_cash_leg_fully_invested_unaffected():
+    r = make_returns(100)
+    rf = pd.Series(0.0002, index=r.index)
+    pos_index = r.index.insert(0, r.index[0] - pd.offsets.BDay(1))
+    pos = pd.Series(1.0, index=pos_index)
+    with_cash = run_backtest(pos, r, cash_returns=rf)
+    without = run_backtest(pos, r)
+    pd.testing.assert_series_equal(with_cash.net_returns, without.net_returns)
+
+
+def test_cash_leg_partial_investment():
+    r = pd.Series([0.01, -0.02], index=pd.bdate_range("2024-01-01", periods=2))
+    pos_index = r.index.insert(0, r.index[0] - pd.offsets.BDay(1))
+    pos = pd.Series(0.5, index=pos_index)
+    rf = pd.Series(0.0004, index=r.index)
+    result = run_backtest(pos, r, cash_returns=rf)
+    expected = [0.5 * 0.01 + 0.5 * 0.0004, 0.5 * -0.02 + 0.5 * 0.0004]
+    assert result.net_returns.tolist() == pytest.approx(expected)
+
+
+def test_cash_leg_never_credited_on_leverage():
+    r = make_returns(50)
+    rf = pd.Series(0.0004, index=r.index)
+    pos_index = r.index.insert(0, r.index[0] - pd.offsets.BDay(1))
+    pos = pd.Series(1.5, index=pos_index)  # leveraged: cash weight floors at 0
+    result = run_backtest(pos, r, cash_returns=rf)
+    assert result.gross_returns.tolist() == pytest.approx((1.5 * r).tolist())
+
+
+def test_cash_leg_missing_dates_fail_loudly():
+    r = make_returns(50)
+    rf = pd.Series(0.0002, index=r.index[:30])
+    pos = pd.Series(0.5, index=r.index)
+    with pytest.raises(ValueError, match="cash_returns missing"):
+        run_backtest(pos, r, cash_returns=rf)
+
+
 def test_nan_inputs_fail_loudly():
     r = make_returns(10)
     pos = pd.Series(1.0, index=r.index)

@@ -55,6 +55,42 @@ def load_prices(
     return prices
 
 
+def load_risk_free(
+    cache_dir: str | Path = "data/raw",
+    ticker: str = "^IRX",
+    periods_per_year: int = 252,
+    refresh: bool = False,
+) -> pd.Series:
+    """Daily cash (risk-free) return series from an annualized T-bill yield index.
+
+    ``^IRX`` quotes the 13-week T-bill discount yield in percent (e.g. ``4.85``).
+    Conversion to a per-period simple return is ``y / 100 / periods_per_year`` —
+    a documented simplification (ignores discount vs. bond-equivalent compounding;
+    the error is < 0.1% annualized at historical yield levels).
+
+    Point-in-time convention: the series is forward-filled and **lagged one
+    day** — the rate known at the close of ``t`` accrues over ``t+1``, matching
+    the engine's execution lag. Deliberately *not* routed through
+    ``clean_prices``: near-zero yields (2009-2015, 2020-21) are real data.
+    """
+    cache = Path(cache_dir)
+    cache.mkdir(parents=True, exist_ok=True)
+    path = cache / f"{ticker.replace('^', '')}.csv"
+    if refresh or not path.exists():
+        _download(ticker, path)
+    frame = pd.read_csv(path, index_col=0, parse_dates=True)
+    if "close" not in frame.columns:
+        raise ValueError(f"{path} must have a 'close' column, found {list(frame.columns)}.")
+    rate = frame["close"]
+    # Bond-market holidays (e.g. Columbus Day) have no T-bill quote while
+    # equities trade: reindex to a continuous business-day calendar so the
+    # prior day's rate carries over before lagging.
+    calendar = pd.bdate_range(rate.index.min(), rate.index.max()).union(rate.index)
+    rate = rate.reindex(calendar).ffill()
+    rf = (rate / 100.0 / periods_per_year).shift(1).rename("rf")
+    return rf.dropna()
+
+
 def _download(ticker: str, path: Path) -> None:
     """Download the full adjusted-close history for ``ticker`` to ``path``."""
     try:

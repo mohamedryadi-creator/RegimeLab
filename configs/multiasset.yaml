@@ -6,6 +6,7 @@ seed: 0
 params:
   universe: ["SPY", "TLT", "GLD"]
   start: "2004-12-01"
+  risk_free: "^IRX"
   cost_bps: 5.0
   cost_sweep_bps: [0, 5, 20]
   trend_window: 200
@@ -27,3 +28,4 @@ params:
       max_iter: 100
       exposure: {0: 1.0, 1: 0.0}
       probability_scaled: true
+      bands: [0.05, 0.1, 0.2]

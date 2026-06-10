@@ -43,12 +43,18 @@ def run_backtest(
     asset_returns: pd.Series | pd.DataFrame,
     cost_model: CostModel | None = None,
     lag: int = 1,
+    cash_returns: pd.Series | None = None,
 ) -> BacktestResult:
     """Backtest ``target_positions`` against ``asset_returns``.
 
     ``target_positions[t]`` is the weight decided at the close of ``t``; it is
     held during ``t + lag``. ``lag`` must be >= 1 — a zero lag would let
     positions earn the same period's return they were computed from.
+
+    ``cash_returns``, if given, is the per-period return earned on the
+    *uninvested* weight ``max(0, 1 - sum(held))`` (already point-in-time, e.g.
+    from ``load_risk_free``). The floor at 0 means leveraged weights never get
+    credited the cash rate. ``None`` keeps the historical zero-cash behavior.
     """
     if lag < 1:
         raise ValueError("lag must be >= 1; lag=0 introduces look-ahead bias.")
@@ -79,6 +85,14 @@ def run_backtest(
     held = tp.shift(lag).reindex(ar.index).fillna(0.0)
 
     gross = (held * ar).sum(axis=1)
+
+    if cash_returns is not None:
+        cash = cash_returns.reindex(ar.index)
+        if cash.isna().any():
+            missing = cash.index[cash.isna()][:3].tolist()
+            raise ValueError(f"cash_returns missing dates present in asset_returns: {missing}.")
+        cash_weight = (1.0 - held.sum(axis=1)).clip(lower=0.0)
+        gross = gross + cash_weight * cash
 
     trades = held.diff()
     trades.iloc[0] = held.iloc[0]

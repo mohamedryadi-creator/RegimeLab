@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from regimelab.data.cleaning import clean_prices, to_returns
-from regimelab.data.loaders import load_prices
+from regimelab.data.loaders import load_prices, load_risk_free
 
 
 @pytest.fixture
@@ -34,6 +34,28 @@ def test_load_prices_empty_range_raises(cached_prices):
     cache_dir, _ = cached_prices
     with pytest.raises(ValueError, match="No price data"):
         load_prices(["TEST"], start="2030-01-01", cache_dir=cache_dir)
+
+
+def test_load_risk_free_conversion_and_lag(tmp_path):
+    idx = pd.bdate_range("2020-01-01", periods=4)
+    # Annualized percent yields, varying so the one-day lag is observable.
+    yields = pd.Series([2.52, 5.04, 5.04, 5.04], index=idx, name="close")
+    yields.to_csv(tmp_path / "IRX.csv", index_label="date")
+
+    rf = load_risk_free(cache_dir=tmp_path, ticker="^IRX")
+    # First date is consumed by the lag; day 2 accrues day 1's known rate.
+    assert rf.index[0] == idx[1]
+    assert rf.iloc[0] == pytest.approx(2.52 / 100 / 252)
+    assert rf.iloc[1] == pytest.approx(5.04 / 100 / 252)
+
+
+def test_load_risk_free_tolerates_near_zero_yields(tmp_path):
+    idx = pd.bdate_range("2012-01-01", periods=3)
+    pd.Series([0.0, 0.01, 0.0], index=idx, name="close").to_csv(
+        tmp_path / "IRX.csv", index_label="date"
+    )
+    rf = load_risk_free(cache_dir=tmp_path)  # must not raise (unlike clean_prices)
+    assert (rf >= 0).all()
 
 
 def test_clean_prices_rejects_nonpositive():

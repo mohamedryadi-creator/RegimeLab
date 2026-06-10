@@ -24,9 +24,10 @@ from regimelab.backtest.engine import run_backtest
 from regimelab.backtest.metrics import summary
 from regimelab.config import load_config
 from regimelab.data.cleaning import clean_prices, to_returns
-from regimelab.data.loaders import load_prices
+from regimelab.data.loaders import load_prices, load_risk_free
 from regimelab.regimes import regime_model_from_spec
 from regimelab.strategies import (
+    BandedStrategy,
     BuyAndHold,
     ProbabilityScaledStrategy,
     RegimeGatedStrategy,
@@ -60,6 +61,14 @@ def main() -> None:
     )
     prices = clean_prices(prices)
     returns = to_returns(prices, kind="simple")
+
+    # Optional cash leg: uninvested weight earns the (lagged) T-bill rate, and
+    # Sharpe/Sortino are computed on excess returns.
+    rf = None
+    if p.get("risk_free"):
+        rf = load_risk_free(cache_dir=REPO_ROOT / "data" / "raw", ticker=p["risk_free"])
+        print(f"Cash leg: {p['risk_free']}, mean annualized rate "
+              f"{rf.reindex(returns.index).mean() * 252:.2%}")
 
     splits = walk_forward_splits(
         prices.index,
@@ -100,7 +109,8 @@ def main() -> None:
             TrendFollowing(window=trend_window), regimes, exposure
         )
 
-        if spec.get("probability_scaled"):
+        bands = [float(b) for b in spec.get("bands", [])]
+        if spec.get("probability_scaled") or bands:
             # Continuous variant: exposure_t = sum_k exposure(k) * P(state k | past),
             # from walk-forward *filtered* probabilities (never smoothed).
             probs = walk_forward_proba_per_asset(factory, prices, splits)
@@ -114,7 +124,14 @@ def main() -> None:
                     for asset in prices.columns
                 }
             )
-            strategies[f"{name}p_bh"] = ProbabilityScaledStrategy(BuyAndHold(), weights)
+            scaled = ProbabilityScaledStrategy(BuyAndHold(), weights)
+            if spec.get("probability_scaled"):
+                strategies[f"{name}p_bh"] = scaled
+            for band in bands:
+                # No-trade band on the scaled exposure; reported as a sweep,
+                # never a selected "best" band.
+                label = f"{name}p_b{int(round(band * 100)):02d}_bh"
+                strategies[label] = BandedStrategy(scaled, band)
 
     if oos is None:
         oos = prices.index[len(splits[0][0]) :] if splits else prices.index
@@ -128,14 +145,25 @@ def main() -> None:
         # but performance is measured on the common out-of-sample period only.
         positions = strat.target_positions(prices)
         for bps in cost_sweep:
-            result = run_backtest(positions, oos_returns, cost_model=ProportionalCost(bps))
-            tables.append(summary(result.net_returns, result.turnover, name=f"{name}@{bps:g}bps"))
+            result = run_backtest(
+                positions, oos_returns, cost_model=ProportionalCost(bps), cash_returns=rf
+            )
+            tables.append(
+                summary(
+                    result.net_returns,
+                    result.turnover,
+                    name=f"{name}@{bps:g}bps",
+                    rf=rf if rf is not None else 0.0,
+                )
+            )
             if bps == cost_bps:
                 net_series[name] = result.net_returns
 
     table = pd.concat(tables)
     table.to_csv(out_dir / "summary.csv")
     pd.DataFrame(net_series).to_csv(out_dir / "net_returns.csv")
+    if rf is not None:
+        rf.reindex(oos_returns.index).to_csv(out_dir / "risk_free.csv")
 
     pd.set_option("display.width", 160)
     print(f"\n{table.round(3)}")

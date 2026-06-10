@@ -1,12 +1,15 @@
 """Head-to-head: baselines vs. regime-gated variants, out-of-sample.
 
 Usage:
-    python experiments/run_regime_comparison.py configs/regimes_spy.yaml
+    python experiments/run_regime_comparison.py configs/comparison_spy.yaml
 
-The volatility regime model is refitted on a walk-forward schedule and only its
-out-of-sample labels are used for gating. All strategies — including the
-ungated baselines — are evaluated on the identical out-of-sample period and
-cost levels, so differences are attributable to the regime signal alone.
+Regime models are declared in the config (``regime_models`` list, each with a
+``type``, a ``name``, constructor parameters, and an ``exposure`` map from
+regime label to position scale). Every model is refitted on the same
+walk-forward schedule and only its out-of-sample labels are used for gating.
+All strategies — including the ungated baselines — are evaluated on the
+identical out-of-sample period and cost levels, so differences are
+attributable to the regime signals alone.
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ from regimelab.backtest.metrics import summary
 from regimelab.config import load_config
 from regimelab.data.cleaning import clean_prices, to_returns
 from regimelab.data.loaders import load_prices
-from regimelab.regimes import VolatilityThresholdRegime
+from regimelab.regimes import regime_model_from_spec
 from regimelab.strategies import BuyAndHold, RegimeGatedStrategy, TrendFollowing
 from regimelab.validation.walkforward import walk_forward_predict, walk_forward_splits
 
@@ -49,37 +52,44 @@ def main() -> None:
     prices = clean_prices(prices)
     returns = to_returns(prices, kind="simple")
 
-    # Out-of-sample regime labels via walk-forward refitting.
     splits = walk_forward_splits(
         prices.index,
         train_size=int(p.get("train_size", 1260)),
         test_size=int(p.get("test_size", 252)),
         scheme=p.get("scheme", "expanding"),
     )
-    vol_model = VolatilityThresholdRegime(
-        vol_window=int(p.get("vol_window", 20)),
-        quantile=float(p.get("vol_quantile", 0.8)),
-    )
-    regimes = walk_forward_predict(vol_model, prices, splits)
-    oos = regimes.index
-    print(
-        f"Out-of-sample: {oos.min().date()} to {oos.max().date()} "
-        f"({len(oos)} days, {len(splits)} refits); "
-        f"turbulent fraction: {regimes.mean():.1%}"
-    )
-
-    risk_off = {0.0: 1.0, 1.0: 0.0}
-    strategies = {
-        "buy_and_hold": BuyAndHold(),
-        f"trend_{trend_window}d": TrendFollowing(window=trend_window),
-        "volgate_bh": RegimeGatedStrategy(BuyAndHold(), regimes, exposure=risk_off),
-        f"volgate_trend_{trend_window}d": RegimeGatedStrategy(
-            TrendFollowing(window=trend_window), regimes, exposure=risk_off
-        ),
-    }
 
     out_dir = REPO_ROOT / "experiments" / "outputs" / cfg.name
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    strategies: dict[str, object] = {
+        "buy_and_hold": BuyAndHold(),
+        f"trend_{trend_window}d": TrendFollowing(window=trend_window),
+    }
+    oos = None
+    for spec in p.get("regime_models", []):
+        spec = dict(spec)
+        name = spec.get("name", spec["type"])
+        if spec["type"] == "hmm":
+            spec.setdefault("seed", cfg.seed)
+        exposure = {float(k): float(v) for k, v in spec.get("exposure", {0: 1.0, 1: 0.0}).items()}
+        model = regime_model_from_spec(spec)
+
+        regimes = walk_forward_predict(model, prices, splits)
+        regimes.to_csv(out_dir / f"regimes_{name}.csv")
+        oos = regimes.index
+        shares = regimes.value_counts(normalize=True).sort_index()
+        dist = ", ".join(f"{int(k)}: {v:.1%}" for k, v in shares.items())
+        print(f"{name}: OOS regime shares {{{dist}}}, {len(splits)} refits")
+
+        strategies[f"{name}_bh"] = RegimeGatedStrategy(BuyAndHold(), regimes, exposure)
+        strategies[f"{name}_trend"] = RegimeGatedStrategy(
+            TrendFollowing(window=trend_window), regimes, exposure
+        )
+
+    if oos is None:
+        oos = prices.index[len(splits[0][0]) :] if splits else prices.index
+    print(f"Out-of-sample window: {oos.min().date()} to {oos.max().date()} ({len(oos)} days)")
 
     tables = []
     net_series = {}
@@ -97,11 +107,10 @@ def main() -> None:
     table = pd.concat(tables)
     table.to_csv(out_dir / "summary.csv")
     pd.DataFrame(net_series).to_csv(out_dir / "net_returns.csv")
-    regimes.to_csv(out_dir / "regimes_oos.csv")
 
     pd.set_option("display.width", 160)
     print(f"\n{table.round(3)}")
-    print(f"\nWrote summary.csv, net_returns.csv, regimes_oos.csv to {out_dir}")
+    print(f"\nWrote summary.csv, net_returns.csv, regimes_*.csv to {out_dir}")
 
 
 if __name__ == "__main__":

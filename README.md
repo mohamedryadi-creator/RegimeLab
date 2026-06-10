@@ -99,9 +99,12 @@ modeling and data-source choices.
       `RegimeModel`s with causality tests; `RegimeGatedStrategy` wrapper;
       `walk_forward_predict` for stitched out-of-sample regime labels; head-to-head
       experiment (`experiments/run_regime_comparison.py`).
-- [ ] **Phase 5 — Statistical regime models.** Gaussian HMM (and/or Markov-switching)
-      with walk-forward refitting, filtered probabilities only, seed-controlled EM
-      restarts, regime identification across refits; persistence diagnostics.
+- [x] **Phase 5 — Statistical regime models.** Gaussian HMM on log returns with
+      walk-forward refitting; *filtered* probabilities via a manual forward recursion
+      (hmmlearn's predict/predict_proba are Viterbi/smoothed and would leak future
+      data); seed-controlled EM restarts; states identified by ascending variance
+      across refits; expected-duration persistence diagnostic; config-driven model
+      factory so heuristics and HMMs run through one comparison experiment.
 - [ ] **Phase 6 — Experiments and report.** Head-to-head experiment (baselines vs.
       heuristic vs. statistical regimes, identical splits and costs), robustness checks
       (cost sweep, sub-periods, parameter sensitivity), bootstrap intervals on Sharpe
@@ -119,9 +122,19 @@ The first run downloads SPY history into `data/raw/` (requires
 
 ## Status
 
-Phases 0–4 complete. First out-of-sample finding (SPY, 2005–2026, 5 bps costs,
-yearly walk-forward refits): gating buy-and-hold with a 20-day realized-volatility
-filter (flat when vol exceeds the training-sample 80% quantile) raises Sharpe from
-0.64 to 0.82 and cuts max drawdown from −55% to −34%, at 3.4× annual turnover.
-This is the benchmark the Phase 5 statistical models must beat. Treat as
-preliminary until Phase 6 adds bootstrap intervals and sub-period robustness.
+Phases 0–5 complete. Out-of-sample findings on SPY (2005–2026, 5 bps costs, yearly
+walk-forward refits, gating buy-and-hold):
+
+| Regime signal | Sharpe | Max DD | Turnover/yr |
+|---|---|---|---|
+| none (buy & hold) | 0.64 | −55% | 0.05× |
+| vol filter (20d, q80) | 0.82 | −34% | 3.4× |
+| HMM K=2 (flat in high-vol state) | 0.81 | −23% | 9.4× |
+| HMM K=3 (flat in top state only) | 0.65 | −52% | 4.1× |
+
+Both the heuristic vol gate and the 2-state HMM materially improve risk-adjusted
+performance out-of-sample. The HMM controls drawdowns better but trades ~3× more
+(filtered-state flickering), making it more cost-fragile; the 3-state variant gated
+on its extreme state intervenes too rarely (2.5% of days) to matter. Whether the
+HMM−heuristic difference is statistically meaningful is precisely the Phase 6
+question (bootstrap intervals, sub-periods, parameter sensitivity).

@@ -1,0 +1,32 @@
+# Canonical head-to-head on SPY: baselines vs. heuristic vol gate vs. Gaussian
+# HMMs (K=2, K=3), identical walk-forward schedule, OOS window, and cost sweep.
+# HMM exposure maps follow the variance ordering: regime 0 = calmest.
+name: comparison_spy
+seed: 0
+params:
+  universe: ["SPY"]
+  start: "2000-01-01"
+  cost_bps: 5.0
+  cost_sweep_bps: [0, 5, 20]
+  trend_window: 200
+  train_size: 1260
+  test_size: 252
+  scheme: expanding
+  regime_models:
+    - name: vol20q80
+      type: volatility
+      vol_window: 20
+      quantile: 0.8
+      exposure: {0: 1.0, 1: 0.0}
+    - name: hmm2
+      type: hmm
+      n_regimes: 2
+      n_restarts: 3
+      max_iter: 100
+      exposure: {0: 1.0, 1: 0.0}
+    - name: hmm3
+      type: hmm
+      n_regimes: 3
+      n_restarts: 3
+      max_iter: 100
+      exposure: {0: 1.0, 1: 1.0, 2: 0.0}   # flat only in the most turbulent state

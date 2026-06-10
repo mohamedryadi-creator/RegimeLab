@@ -4,7 +4,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from regimelab.regimes import RegimeModel, TrendRegime, VolatilityThresholdRegime
+from regimelab.regimes import (
+    RegimeModel,
+    TrendRegime,
+    VolatilityThresholdRegime,
+    regime_model_from_spec,
+)
 from regimelab.validation.walkforward import walk_forward_predict, walk_forward_splits
 
 
@@ -89,6 +94,20 @@ def test_regime_models_reject_multiasset_input():
 def test_n_regimes():
     assert VolatilityThresholdRegime().n_regimes == 2
     assert TrendRegime().n_regimes == 2
+
+
+def test_regime_model_from_spec():
+    model = regime_model_from_spec(
+        {"name": "v", "type": "volatility", "vol_window": 10, "quantile": 0.9,
+         "exposure": {0: 1.0, 1: 0.0}}
+    )
+    assert isinstance(model, VolatilityThresholdRegime)
+    assert model.vol_window == 10 and model.quantile == 0.9
+
+    assert isinstance(regime_model_from_spec({"type": "trend", "window": 50}), TrendRegime)
+
+    with pytest.raises(ValueError, match="Unknown regime model type"):
+        regime_model_from_spec({"type": "wavelet"})
 
 
 class RecordingModel(RegimeModel):

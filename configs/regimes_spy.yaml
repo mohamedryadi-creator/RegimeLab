@@ -1,4 +1,4 @@
-# Heuristic regime gating vs. baselines on SPY, out-of-sample.
+# Heuristic regime gating vs. baselines on SPY (no models extra required).
 # Walk-forward: ~5y initial training window, yearly refits, expanding scheme.
 name: regimes_spy
 seed: 0
@@ -8,8 +8,12 @@ params:
   cost_bps: 5.0
   cost_sweep_bps: [0, 5, 20]
   trend_window: 200
-  vol_window: 20
-  vol_quantile: 0.8
   train_size: 1260
   test_size: 252
   scheme: expanding
+  regime_models:
+    - name: vol20q80
+      type: volatility
+      vol_window: 20
+      quantile: 0.8
+      exposure: {0: 1.0, 1: 0.0}

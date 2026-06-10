@@ -19,4 +19,8 @@ final report's methodology section.
 | 2026-06-10 | Regime label convention | int labels vs. float with NaN warm-up | Float labels (0.0, 1.0, ...) with NaN during warm-up; consumers must handle NaN explicitly (gated strategy defaults to flat) |
 | 2026-06-10 | Strategy use of regimes (Phase 4) | binary gate vs. continuous scaling | Binary risk-off gate ({calm: 1, turbulent: 0}) for heuristics; continuous scaling by regime probability deferred to Phase 5+ |
 | 2026-06-10 | Heuristic walk-forward | expanding vs. rolling; refit frequency | Expanding scheme, ~5y initial train (1260 days), yearly refits (252) — sensitivity to this belongs in Phase 6 robustness checks |
-| | Regime model family & K | HMM vs. Markov-switching; fixed K vs. IC-selected | *open (Phase 5)* |
+| 2026-06-10 | Statistical model family | Gaussian HMM vs. Markov-switching regression | Gaussian HMM (hmmlearn, diag covariance) on log returns; Markov-switching regression dropped for scope — the HMM answers the regime question directly |
+| 2026-06-10 | Causal HMM inference | hmmlearn predict/predict_proba vs. manual forward filter | Manual forward recursion for filtered P(state_t \| r_1..t): hmmlearn's are Viterbi/smoothed and condition on future data; causality enforced by truncation tests |
+| 2026-06-10 | EM stability | single fit vs. multiple restarts | n_restarts seeded fits, keep best in-sample log-likelihood; fit metadata (score, restart, convergence) recorded in `fit_info_` |
+| 2026-06-10 | State identification across refits | none vs. variance ordering | Relabel states by ascending variance after every fit: regime 0 is always calmest — exposure maps stay meaningful across walk-forward refits |
+| 2026-06-10 | Number of regimes | fixed K vs. IC-selected | Compare K=2 and K=3 explicitly as experiment variants rather than auto-selecting; K=2 gates well, K=3's extreme state fires too rarely (2.5% of OOS days) |

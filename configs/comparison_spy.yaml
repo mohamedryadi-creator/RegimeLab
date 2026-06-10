@@ -12,6 +12,12 @@ params:
   train_size: 1260
   test_size: 252
   scheme: expanding
+  subperiods:                    # robustness: is the result one lucky era?
+    - ["2005-01-01", "2009-12-31"]
+    - ["2010-01-01", "2019-12-31"]
+    - ["2020-01-01", "2026-12-31"]
+  sens_vol_windows: [10, 20, 60]
+  sens_vol_quantiles: [0.7, 0.8, 0.9]
   regime_models:
     - name: vol20q80
       type: volatility

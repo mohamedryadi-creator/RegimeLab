@@ -105,10 +105,9 @@ modeling and data-source choices.
       data); seed-controlled EM restarts; states identified by ascending variance
       across refits; expected-duration persistence diagnostic; config-driven model
       factory so heuristics and HMMs run through one comparison experiment.
-- [ ] **Phase 6 — Experiments and report.** Head-to-head experiment (baselines vs.
-      heuristic vs. statistical regimes, identical splits and costs), robustness checks
-      (cost sweep, sub-periods, parameter sensitivity), bootstrap intervals on Sharpe
-      differences; short research report in `reports/`.
+- [x] **Phase 6 — Experiments and report.** Paired circular block-bootstrap intervals
+      on Sharpe differences; sub-period analysis; vol-gate parameter sensitivity grid;
+      research report in [`reports/report.md`](reports/report.md).
 
 ## Running the baselines
 
@@ -132,9 +131,9 @@ walk-forward refits, gating buy-and-hold):
 | HMM K=2 (flat in high-vol state) | 0.81 | −23% | 9.4× |
 | HMM K=3 (flat in top state only) | 0.65 | −52% | 4.1× |
 
-Both the heuristic vol gate and the 2-state HMM materially improve risk-adjusted
-performance out-of-sample. The HMM controls drawdowns better but trades ~3× more
-(filtered-state flickering), making it more cost-fragile; the 3-state variant gated
-on its extreme state intervenes too rarely (2.5% of days) to matter. Whether the
-HMM−heuristic difference is statistically meaningful is precisely the Phase 6
-question (bootstrap intervals, sub-periods, parameter sensitivity).
+All phases complete — full findings in [`reports/report.md`](reports/report.md).
+Headlines: regime gating is best understood as *drawdown insurance* (−55% → −23/34%,
+consistent across sub-periods) rather than Sharpe enhancement — paired block-bootstrap
+95% intervals on every Sharpe difference include zero, even with 21 years of daily
+data. The HMM matched but did not beat the volatility heuristic (ΔSharpe +0.01) and
+its 3× higher turnover makes it strictly worse at 20 bps costs.

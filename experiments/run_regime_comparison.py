@@ -26,8 +26,17 @@ from regimelab.config import load_config
 from regimelab.data.cleaning import clean_prices, to_returns
 from regimelab.data.loaders import load_prices
 from regimelab.regimes import regime_model_from_spec
-from regimelab.strategies import BuyAndHold, RegimeGatedStrategy, TrendFollowing
-from regimelab.validation.walkforward import walk_forward_predict, walk_forward_splits
+from regimelab.strategies import (
+    BuyAndHold,
+    ProbabilityScaledStrategy,
+    RegimeGatedStrategy,
+    TrendFollowing,
+)
+from regimelab.validation.walkforward import (
+    walk_forward_predict_per_asset,
+    walk_forward_proba_per_asset,
+    walk_forward_splits,
+)
 
 REPO_ROOT = Path(__file__).parent.parent
 
@@ -73,19 +82,39 @@ def main() -> None:
         if spec["type"] == "hmm":
             spec.setdefault("seed", cfg.seed)
         exposure = {float(k): float(v) for k, v in spec.get("exposure", {0: 1.0, 1: 0.0}).items()}
-        model = regime_model_from_spec(spec)
 
-        regimes = walk_forward_predict(model, prices, splits)
+        def factory(spec=spec):
+            return regime_model_from_spec(spec)
+
+        # One independently fitted model per asset (regime models are per-asset).
+        regimes = walk_forward_predict_per_asset(factory, prices, splits)
         regimes.to_csv(out_dir / f"regimes_{name}.csv")
         oos = regimes.index
-        shares = regimes.value_counts(normalize=True).sort_index()
-        dist = ", ".join(f"{int(k)}: {v:.1%}" for k, v in shares.items())
-        print(f"{name}: OOS regime shares {{{dist}}}, {len(splits)} refits")
+        for col in regimes.columns:
+            shares = regimes[col].value_counts(normalize=True).sort_index()
+            dist = ", ".join(f"{int(k)}: {v:.1%}" for k, v in shares.items())
+            print(f"{name}/{col}: OOS regime shares {{{dist}}}, {len(splits)} refits")
 
         strategies[f"{name}_bh"] = RegimeGatedStrategy(BuyAndHold(), regimes, exposure)
         strategies[f"{name}_trend"] = RegimeGatedStrategy(
             TrendFollowing(window=trend_window), regimes, exposure
         )
+
+        if spec.get("probability_scaled"):
+            # Continuous variant: exposure_t = sum_k exposure(k) * P(state k | past),
+            # from walk-forward *filtered* probabilities (never smoothed).
+            probs = walk_forward_proba_per_asset(factory, prices, splits)
+            probs.to_csv(out_dir / f"probs_{name}.csv")
+            weights = pd.DataFrame(
+                {
+                    asset: sum(
+                        exposure.get(float(state), 0.0) * probs[(asset, state)]
+                        for state in probs[asset].columns
+                    )
+                    for asset in prices.columns
+                }
+            )
+            strategies[f"{name}p_bh"] = ProbabilityScaledStrategy(BuyAndHold(), weights)
 
     if oos is None:
         oos = prices.index[len(splits[0][0]) :] if splits else prices.index

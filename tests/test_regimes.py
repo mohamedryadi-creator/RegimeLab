@@ -10,7 +10,13 @@ from regimelab.regimes import (
     VolatilityThresholdRegime,
     regime_model_from_spec,
 )
-from regimelab.validation.walkforward import walk_forward_predict, walk_forward_splits
+from regimelab.validation.walkforward import (
+    walk_forward_predict,
+    walk_forward_predict_per_asset,
+    walk_forward_predict_proba,
+    walk_forward_proba_per_asset,
+    walk_forward_splits,
+)
 
 
 def make_prices(n=600, seed=0, vol_break=None):
@@ -123,6 +129,9 @@ class RecordingModel(RegimeModel):
     def predict_regimes(self, X):
         return pd.Series(0.0, index=X.index, name="regime")
 
+    def filtered_probabilities(self, X):
+        return pd.DataFrame({0: 1.0, 1: 0.0}, index=X.index)
+
 
 def test_walk_forward_predict_fits_only_on_past():
     prices = make_prices(n=500)
@@ -135,3 +144,43 @@ def test_walk_forward_predict_fits_only_on_past():
         assert fit_end < test.min()
     # Predictions cover exactly the out-of-sample period, in order.
     pd.testing.assert_index_equal(labels.index, prices.index[200:])
+
+
+def test_walk_forward_predict_proba_fits_only_on_past():
+    prices = make_prices(n=500)
+    splits = walk_forward_splits(prices.index, train_size=200, test_size=100)
+    model = RecordingModel()
+    probs = walk_forward_predict_proba(model, prices, splits)
+
+    for fit_end, (_, test) in zip(model.fit_ends, splits, strict=True):
+        assert fit_end < test.min()
+    pd.testing.assert_index_equal(probs.index, prices.index[200:])
+    assert list(probs.columns) == [0, 1]
+
+
+def test_walk_forward_predict_proba_requires_probabilistic_model():
+    prices = make_prices(n=300)
+    splits = walk_forward_splits(prices.index, train_size=200, test_size=50)
+    with pytest.raises(TypeError, match="filtered_probabilities"):
+        walk_forward_predict_proba(TrendRegime(window=20), prices, splits)
+
+
+def test_per_asset_walk_forward():
+    idx = pd.bdate_range("2019-01-01", periods=400)
+    rng = np.random.default_rng(0)
+    prices = pd.DataFrame(
+        {
+            "A": 100 * np.exp(np.cumsum(rng.normal(0, 0.01, 400))),
+            "B": 50 * np.exp(np.cumsum(rng.normal(0, 0.02, 400))),
+        },
+        index=idx,
+    )
+    splits = walk_forward_splits(idx, train_size=200, test_size=100)
+
+    labels = walk_forward_predict_per_asset(RecordingModel, prices, splits)
+    assert list(labels.columns) == ["A", "B"]
+    pd.testing.assert_index_equal(labels.index, idx[200:])
+
+    probs = walk_forward_proba_per_asset(RecordingModel, prices, splits)
+    assert list(probs.columns) == [("A", 0), ("A", 1), ("B", 0), ("B", 1)]
+    pd.testing.assert_index_equal(probs.index, idx[200:])

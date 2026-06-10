@@ -1,0 +1,29 @@
+# Multi-asset extension: equities (SPY), long-duration bonds (TLT), gold (GLD).
+# Each asset is gated by its own independently fitted regime model; baselines
+# are equal-weight. Start is bounded by GLD inception (2004-11).
+name: multiasset
+seed: 0
+params:
+  universe: ["SPY", "TLT", "GLD"]
+  start: "2004-12-01"
+  cost_bps: 5.0
+  cost_sweep_bps: [0, 5, 20]
+  trend_window: 200
+  train_size: 1260
+  test_size: 252
+  scheme: expanding
+  sens_vol_windows: [10, 20, 60]
+  sens_vol_quantiles: [0.7, 0.8, 0.9]
+  regime_models:
+    - name: vol20q80
+      type: volatility
+      vol_window: 20
+      quantile: 0.8
+      exposure: {0: 1.0, 1: 0.0}
+    - name: hmm2
+      type: hmm
+      n_regimes: 2
+      n_restarts: 3
+      max_iter: 100
+      exposure: {0: 1.0, 1: 0.0}
+      probability_scaled: true

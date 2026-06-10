@@ -28,6 +28,7 @@ def regime_model_from_spec(spec: Mapping) -> RegimeModel:
     kind = kwargs.pop("type", None)
     kwargs.pop("name", None)
     kwargs.pop("exposure", None)
+    kwargs.pop("probability_scaled", None)
     if kind == "volatility":
         return VolatilityThresholdRegime(**kwargs)
     if kind == "trend":

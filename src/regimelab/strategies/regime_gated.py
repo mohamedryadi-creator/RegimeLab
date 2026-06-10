@@ -26,21 +26,35 @@ class RegimeGatedStrategy(Strategy):
     """Scale ``base`` positions by the exposure assigned to each date's regime.
 
     ``exposure`` maps regime labels to position scales, e.g. ``{0: 1.0, 1: 0.0}``
-    for "fully invested in calm, flat in turbulence". Binary gating is the
-    Phase 4 choice; continuous scaling (e.g. by regime probability) is a
-    Phase 5+ variant and fits the same interface.
+    for "fully invested in calm, flat in turbulence". ``regimes`` is either a
+    Series (one signal gating the whole portfolio) or a DataFrame with one
+    label column per asset (each asset gated by its own regime model). For
+    continuous scaling by filtered probabilities see
+    :class:`regimelab.strategies.probability_scaled.ProbabilityScaledStrategy`.
     """
 
     base: Strategy
-    regimes: pd.Series
+    regimes: pd.Series | pd.DataFrame
     exposure: Mapping[float, float] = field(default_factory=lambda: {0.0: 1.0, 1.0: 0.0})
     default_exposure: float = 0.0
 
     def target_positions(self, data: pd.DataFrame) -> pd.DataFrame:
         positions = self.base.target_positions(data)
+        expo = dict(self.exposure)
+        if isinstance(self.regimes, pd.DataFrame):
+            if set(self.regimes.columns) != set(positions.columns):
+                raise ValueError(
+                    f"Per-asset regime columns {list(self.regimes.columns)} must "
+                    f"match position columns {list(positions.columns)}."
+                )
+            scale = (
+                self.regimes[positions.columns]
+                .apply(lambda col: col.map(expo))
+                .reindex(positions.index)
+                .fillna(self.default_exposure)
+            )
+            return positions * scale
         scale = (
-            self.regimes.map(dict(self.exposure))
-            .reindex(positions.index)
-            .fillna(self.default_exposure)
+            self.regimes.map(expo).reindex(positions.index).fillna(self.default_exposure)
         )
         return positions.mul(scale, axis=0)

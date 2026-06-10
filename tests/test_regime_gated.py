@@ -44,6 +44,23 @@ def test_unknown_label_uses_default(prices):
     assert (pos["X"] == 0.0).all()
 
 
+def test_per_asset_regime_gating():
+    idx = pd.bdate_range("2020-01-01", periods=4)
+    prices = pd.DataFrame({"A": 100.0, "B": 50.0}, index=idx)
+    regimes = pd.DataFrame(
+        {"A": [0.0, 1.0, 1.0, 0.0], "B": [1.0, 1.0, 0.0, 0.0]}, index=idx
+    )
+    pos = RegimeGatedStrategy(BuyAndHold(), regimes).target_positions(prices)
+    assert pos["A"].tolist() == pytest.approx([0.5, 0.0, 0.0, 0.5])
+    assert pos["B"].tolist() == pytest.approx([0.0, 0.0, 0.5, 0.5])
+
+
+def test_per_asset_regimes_require_matching_columns(prices):
+    regimes = pd.DataFrame({"Y": 0.0}, index=prices.index)
+    with pytest.raises(ValueError, match="columns"):
+        RegimeGatedStrategy(BuyAndHold(), regimes).target_positions(prices)
+
+
 def test_gating_avoids_flagged_crash_through_engine():
     """Gated strategy sidesteps a crash its regime labels flag one day early."""
     idx = pd.bdate_range("2020-01-01", periods=6)

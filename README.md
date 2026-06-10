@@ -108,6 +108,10 @@ modeling and data-source choices.
 - [x] **Phase 6 — Experiments and report.** Paired circular block-bootstrap intervals
       on Sharpe differences; sub-period analysis; vol-gate parameter sensitivity grid;
       research report in [`reports/report.md`](reports/report.md).
+- [x] **Extensions (v2).** Continuous position scaling by filtered HMM probabilities
+      (`ProbabilityScaledStrategy`); multi-asset universe (SPY/TLT/GLD) with per-asset
+      regime models; `regimelab.plotting` + four analysis notebooks producing the
+      report's figures (`reports/figures/`).
 
 ## Running the baselines
 
@@ -131,9 +135,12 @@ walk-forward refits, gating buy-and-hold):
 | HMM K=2 (flat in high-vol state) | 0.81 | −23% | 9.4× |
 | HMM K=3 (flat in top state only) | 0.65 | −52% | 4.1× |
 
-All phases complete — full findings in [`reports/report.md`](reports/report.md).
-Headlines: regime gating is best understood as *drawdown insurance* (−55% → −23/34%,
-consistent across sub-periods) rather than Sharpe enhancement — paired block-bootstrap
-95% intervals on every Sharpe difference include zero, even with 21 years of daily
-data. The HMM matched but did not beat the volatility heuristic (ΔSharpe +0.01) and
-its 3× higher turnover makes it strictly worse at 20 bps costs.
+All phases plus the v2 extensions complete — full findings and figures in
+[`reports/report.md`](reports/report.md). Headlines: regime gating is *drawdown
+insurance* (−55% → −23/34% on SPY, consistent across sub-periods), not Sharpe
+enhancement — every paired-bootstrap 95% interval on a Sharpe difference includes
+zero. The HMM never beat the volatility heuristic, and on a diversified SPY/TLT/GLD
+portfolio (Sharpe 0.96 unhedged) regime gating added nothing or hurt: diversification
+already does the risk-control job. Where a probabilistic model is used, soft
+probability scaling dominates hard thresholding multi-asset (the strongest bootstrap
+signal in the study).

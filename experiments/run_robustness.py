@@ -34,7 +34,10 @@ from regimelab.data.cleaning import clean_prices, to_returns
 from regimelab.data.loaders import load_prices
 from regimelab.regimes import VolatilityThresholdRegime
 from regimelab.strategies import BuyAndHold, RegimeGatedStrategy
-from regimelab.validation.walkforward import walk_forward_predict, walk_forward_splits
+from regimelab.validation.walkforward import (
+    walk_forward_predict_per_asset,
+    walk_forward_splits,
+)
 
 REPO_ROOT = Path(__file__).parent.parent
 
@@ -90,8 +93,12 @@ def vol_gate_sensitivity(p: dict, cost_bps: float) -> pd.DataFrame:
     rows = []
     for window in p.get("sens_vol_windows", [10, 20, 60]):
         for quantile in p.get("sens_vol_quantiles", [0.7, 0.8, 0.9]):
-            model = VolatilityThresholdRegime(vol_window=int(window), quantile=float(quantile))
-            regimes = walk_forward_predict(model, prices, splits)
+            def factory(window=window, quantile=quantile):
+                return VolatilityThresholdRegime(
+                    vol_window=int(window), quantile=float(quantile)
+                )
+
+            regimes = walk_forward_predict_per_asset(factory, prices, splits)
             strat = RegimeGatedStrategy(BuyAndHold(), regimes, exposure={0.0: 1.0, 1.0: 0.0})
             oos_returns = returns.loc[returns.index.isin(regimes.index)]
             result = run_backtest(

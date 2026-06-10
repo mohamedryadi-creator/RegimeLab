@@ -30,6 +30,7 @@ params:
       n_restarts: 3
       max_iter: 100
       exposure: {0: 1.0, 1: 0.0}
+      probability_scaled: true     # adds hmm2p_bh: exposure = filtered P(calm)
     - name: hmm3
       type: hmm
       n_regimes: 3

@@ -22,6 +22,8 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from regimelab.regimes.base import RegimeModel
 
 
@@ -60,6 +62,67 @@ def walk_forward_splits(
         splits.append((train, test))
         test_start += test_size
     return splits
+
+
+def walk_forward_predict_proba(
+    model: "RegimeModel",
+    X: pd.DataFrame,
+    splits: list[tuple[pd.Index, pd.Index]],
+) -> pd.DataFrame:
+    """Stitched out-of-sample *filtered* state probabilities.
+
+    Same refit-on-train discipline as :func:`walk_forward_predict`, but returns
+    the per-state probability DataFrame for models that expose
+    ``filtered_probabilities`` (e.g. the Gaussian HMM). Used for continuous
+    position scaling, where exposure is a probability-weighted average rather
+    than a hard regime gate.
+    """
+    if not hasattr(model, "filtered_probabilities"):
+        raise TypeError(
+            f"{type(model).__name__} does not expose filtered_probabilities(); "
+            "probability scaling requires a probabilistic regime model."
+        )
+    predictions = []
+    for train, test in splits:
+        model.fit(X.loc[train])
+        probs = model.filtered_probabilities(X.loc[X.index <= test.max()])
+        predictions.append(probs.loc[test])
+    return pd.concat(predictions)
+
+
+def walk_forward_predict_per_asset(
+    model_factory: "Callable[[], RegimeModel]",
+    prices: pd.DataFrame,
+    splits: list[tuple[pd.Index, pd.Index]],
+) -> pd.DataFrame:
+    """Per-asset out-of-sample regime labels (one fresh model per asset).
+
+    Regime models are per-asset by design (see regimes.base); for a multi-asset
+    universe each column gets its own independently fitted model. Returns a
+    DataFrame of labels with one column per asset.
+    """
+    return pd.DataFrame(
+        {
+            col: walk_forward_predict(model_factory(), prices[[col]], splits)
+            for col in prices.columns
+        }
+    )
+
+
+def walk_forward_proba_per_asset(
+    model_factory: "Callable[[], RegimeModel]",
+    prices: pd.DataFrame,
+    splits: list[tuple[pd.Index, pd.Index]],
+) -> pd.DataFrame:
+    """Per-asset out-of-sample filtered probabilities.
+
+    Returns a DataFrame with MultiIndex columns ``(asset, state)``.
+    """
+    frames = {
+        col: walk_forward_predict_proba(model_factory(), prices[[col]], splits)
+        for col in prices.columns
+    }
+    return pd.concat(frames, axis=1)
 
 
 def walk_forward_predict(

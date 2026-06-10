@@ -1,0 +1,10 @@
+# Baselines on the S&P 500 ETF (SPY), daily frequency.
+# Universe/source decision recorded in reports/decisions.md (2026-06-10).
+name: baselines_spy
+seed: 0
+params:
+  universe: ["SPY"]
+  start: "2000-01-01"
+  cost_bps: 5.0                  # headline cost assumption
+  cost_sweep_bps: [0, 5, 20]     # sensitivity: frictionless / base / pessimistic
+  trend_window: 200

@@ -1,11 +1,8 @@
 """Experiment configuration handling.
 
-Every experiment must be fully described by a config file (in ``configs/``) plus a
-random seed, so that results are reproducible without any notebook state.
-
-TODO (Phase 6, but the dataclass may grow earlier):
-- Decide on the config format (YAML is the working assumption).
-- Add validation of config contents (dates, universe, cost parameters).
+Every experiment is fully described by a YAML config file (in ``configs/``) plus
+the code version: name, seed, and a free-form ``params`` mapping whose keys are
+validated by the experiment script that consumes them.
 """
 
 from __future__ import annotations
@@ -14,14 +11,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 @dataclass(frozen=True)
 class ExperimentConfig:
-    """A minimal, immutable description of one experiment run.
-
-    Fields will be extended as the methodology is fixed; keep this the single
-    source of truth for anything that can change a result.
-    """
+    """A minimal, immutable description of one experiment run."""
 
     name: str
     seed: int = 0
@@ -29,8 +24,15 @@ class ExperimentConfig:
 
 
 def load_config(path: str | Path) -> ExperimentConfig:
-    """Load an :class:`ExperimentConfig` from a config file.
-
-    TODO: implement YAML loading once the config schema is decided.
-    """
-    raise NotImplementedError("Config loading is implemented in Phase 6.")
+    """Load an :class:`ExperimentConfig` from a YAML file."""
+    raw = yaml.safe_load(Path(path).read_text())
+    if not isinstance(raw, dict) or "name" not in raw:
+        raise ValueError(f"{path} must be a mapping with at least a 'name' key.")
+    unknown = set(raw) - {"name", "seed", "params"}
+    if unknown:
+        raise ValueError(f"Unknown top-level config keys in {path}: {sorted(unknown)}.")
+    return ExperimentConfig(
+        name=str(raw["name"]),
+        seed=int(raw.get("seed", 0)),
+        params=dict(raw.get("params") or {}),
+    )

@@ -55,19 +55,21 @@ RegimeLab/
    concrete methodological choices (universe, frequency, model family, validation scheme)
    are deliberately left open and recorded as decisions in `reports/decisions.md` when made.
 
-## Open methodological decisions
+## Methodological decisions
 
-These are intentionally **not** decided yet:
+Decisions made so far are recorded in [`reports/decisions.md`](reports/decisions.md)
+(universe: SPY to start; daily frequency; yfinance with an immutable local cache;
+proportional costs with a mandatory 0/5/20 bps sensitivity sweep; execution lag
+centralized in the engine; rf = 0 in Sharpe).
+
+Still intentionally **open**:
 
 | Decision | Main options |
 |---|---|
-| Asset universe | Single equity index (e.g. S&P 500) vs. multi-asset (equities, bonds, gold) |
-| Data frequency | Daily (recommended starting point) vs. weekly |
 | Regime definition | Volatility-based, trend-based, or model-implied (latent states) |
 | Statistical model | Gaussian HMM vs. Markov-switching regression vs. both |
 | Number of regimes | Fixed (2–3) vs. selected by information criteria |
-| Validation scheme | Single train/test split vs. expanding walk-forward vs. rolling walk-forward |
-| Cost model | Fixed bps per trade vs. spread + impact components |
+| Walk-forward scheme per experiment | Expanding vs. rolling; refit frequency; embargo length |
 | Strategy use of regimes | Binary filter (risk-on/off) vs. continuous position scaling |
 
 ## Installation
@@ -84,23 +86,37 @@ modeling and data-source choices.
 
 ## Development roadmap
 
-- [ ] **Phase 0 — Skeleton (this commit).** Package structure, interfaces, test scaffolding.
-- [ ] **Phase 1 — Data layer.** Choose data source and universe; implement loading,
-      cleaning, and a cached local data format; validate data quality.
-- [ ] **Phase 2 — Metrics and backtest engine.** Vectorized backtester with explicit
-      signal lagging, transaction costs, turnover; full metrics suite (Sharpe, Sortino,
-      max drawdown, volatility, hit ratio, drawdown durations); tests against hand-computed
-      examples.
-- [ ] **Phase 3 — Baselines.** Buy-and-hold and trend-following; establish the reference
-      results that any regime model must beat *after costs, out-of-sample*.
-- [ ] **Phase 4 — Heuristic regimes.** Simple volatility / trend filters as a cheap
-      benchmark for the statistical models.
-- [ ] **Phase 5 — Statistical regime models.** HMM and/or Markov-switching models with
-      walk-forward refitting; regime stability and persistence diagnostics.
-- [ ] **Phase 6 — Experiments and report.** Config-driven experiment runner, robustness
-      checks (cost sensitivity, sub-period analysis), short research report in `reports/`.
+- [x] **Phase 0 — Skeleton.** Package structure, interfaces, test scaffolding.
+- [x] **Phase 1 — Data layer.** SPY via yfinance with an immutable CSV cache and
+      metadata sidecars; conservative cleaning with loud failures; return conventions.
+- [x] **Phase 2 — Metrics and backtest engine.** Vectorized backtester with centralized
+      execution lag, proportional costs, turnover; metrics suite (Sharpe, Sortino, max
+      drawdown, volatility, hit ratio) tested against hand-computed examples;
+      walk-forward split generator (expanding/rolling, embargo).
+- [x] **Phase 3 — Baselines.** Buy-and-hold and trend-following, plus a config-driven
+      runner (`experiments/run_baselines.py`) with a cost sensitivity sweep.
+- [ ] **Phase 4 — Heuristic regimes.** Volatility-threshold and trend filters as
+      `RegimeModel`s; regime-gated baseline variants; cheap benchmark for Phase 5.
+- [ ] **Phase 5 — Statistical regime models.** Gaussian HMM (and/or Markov-switching)
+      with walk-forward refitting, filtered probabilities only, seed-controlled EM
+      restarts, regime identification across refits; persistence diagnostics.
+- [ ] **Phase 6 — Experiments and report.** Head-to-head experiment (baselines vs.
+      heuristic vs. statistical regimes, identical splits and costs), robustness checks
+      (cost sweep, sub-periods, parameter sensitivity), bootstrap intervals on Sharpe
+      differences; short research report in `reports/`.
+
+## Running the baselines
+
+```bash
+python experiments/run_baselines.py configs/baselines_spy.yaml
+```
+
+The first run downloads SPY history into `data/raw/` (requires
+`pip install -e ".[data]"`); subsequent runs use the cache. Outputs land in
+`experiments/outputs/baselines_spy/`.
 
 ## Status
 
-Phase 0. The repository is a skeleton: interfaces and module layout are in place, the
-implementations are intentionally `TODO`.
+Phases 0–3 complete: data layer, metrics, backtest engine, validation splits, and
+baselines are implemented and tested (including look-ahead bias tests). Next:
+heuristic regime filters (Phase 4), then statistical regime models (Phase 5).

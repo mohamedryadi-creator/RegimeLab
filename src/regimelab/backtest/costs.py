@@ -1,13 +1,32 @@
 """Transaction cost models.
 
-Starting point (Phase 2): proportional costs, ``cost(t) = c * turnover(t)`` with
-``c`` in basis points per unit of turnover. This is simple, transparent, and
-sufficient for liquid index products at daily frequency.
-
-Possible later refinement: separate spread and impact components. Decide only if
-results turn out to be sensitive to the cost model — cost *sensitivity analysis*
-(sweeping c) is part of every experiment regardless.
-
-TODO (Phase 2): implement ProportionalCost; keep a small CostModel protocol so
-the engine does not hard-code the functional form.
+A cost model is any callable mapping a turnover series (sum of absolute weight
+changes per period) to a cost series in return units. Proportional costs are the
+working assumption for liquid index products at daily frequency; every experiment
+should sweep the cost level rather than trust a single number.
 """
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Protocol
+
+import pandas as pd
+
+
+class CostModel(Protocol):
+    def __call__(self, turnover: pd.Series) -> pd.Series: ...
+
+
+@dataclass(frozen=True)
+class ProportionalCost:
+    """Cost = ``bps`` basis points per unit of turnover (one-way)."""
+
+    bps: float
+
+    def __post_init__(self) -> None:
+        if self.bps < 0:
+            raise ValueError("Transaction costs cannot be negative.")
+
+    def __call__(self, turnover: pd.Series) -> pd.Series:
+        return turnover * (self.bps * 1e-4)

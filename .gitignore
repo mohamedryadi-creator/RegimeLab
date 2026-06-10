@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Data: raw and processed datasets are never versioned, only the code
+# that produces them. Keep directory structure via .gitkeep files.
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Experiment outputs (figures, result tables, fitted models)
+experiments/outputs/*
+!experiments/outputs/.gitkeep
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

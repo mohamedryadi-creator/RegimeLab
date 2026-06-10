@@ -1,0 +1,10 @@
+# Example experiment configuration (schema not final — Phase 6).
+# Every experiment is fully described by one such file plus the code version.
+name: example
+seed: 0
+params:
+  # universe: ["SPY"]          # decided in Phase 1
+  # start: "2000-01-01"
+  # frequency: daily
+  # cost_bps: 5                # plus sensitivity sweep
+  # validation: walk_forward   # scheme decided in Phase 2/5

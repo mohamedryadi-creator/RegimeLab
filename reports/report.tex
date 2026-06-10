@@ -11,6 +11,10 @@
 \graphicspath{{figures/}}
 \captionsetup{font=small, labelfont=bf, width=0.92\textwidth}
 
+% Long unbreakable code tokens: allow a little inter-word stretch instead of
+% letting lines run into the margin.
+\emergencystretch=1.5em
+
 \newcommand{\code}[1]{\texttt{#1}}
 
 \title{Market Regime Detection and the Robustness of Simple\\
@@ -496,9 +500,10 @@ PYTHONPATH=src jupyter nbconvert --to notebook --execute \
     --inplace notebooks/0*.ipynb
 \end{verbatim}
 
-Experiment outputs land in \code{experiments/outputs/<name>/}; the figures
-used here are produced by the notebooks into \code{reports/figures/}. The
-methodological decision log is \code{reports/decisions.md}; this document is
-compiled with \code{make -C reports} (Tectonic).
+Experiment outputs land in \code{experiments/outputs/}, one directory per
+experiment; the figures used here are produced by the notebooks into
+\code{reports/figures/}. The methodological decision log is
+\code{reports/decisions.md}; this document is compiled with
+\code{make -C reports} (Tectonic).
 
 \end{document}

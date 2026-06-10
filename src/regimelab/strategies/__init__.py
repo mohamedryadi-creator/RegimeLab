@@ -1,11 +1,12 @@
 """Trading and allocation strategies.
 
 All strategies implement :class:`regimelab.strategies.base.Strategy`: they map
-available information to target positions. Position sizing conventions (e.g.
-weights in [0, 1] for long-only, [-1, 1] if shorting is allowed) are fixed in
-Phase 2 together with the backtest engine.
+available information to target positions (long-only weights in [0, 1] summing
+to at most 1 across assets). The backtest engine applies the execution lag.
 """
 
 from regimelab.strategies.base import Strategy
+from regimelab.strategies.baselines import BuyAndHold, TrendFollowing
+from regimelab.strategies.regime_gated import RegimeGatedStrategy
 
-__all__ = ["Strategy"]
+__all__ = ["BuyAndHold", "RegimeGatedStrategy", "Strategy", "TrendFollowing"]

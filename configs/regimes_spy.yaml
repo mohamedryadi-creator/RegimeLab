@@ -1,0 +1,15 @@
+# Heuristic regime gating vs. baselines on SPY, out-of-sample.
+# Walk-forward: ~5y initial training window, yearly refits, expanding scheme.
+name: regimes_spy
+seed: 0
+params:
+  universe: ["SPY"]
+  start: "2000-01-01"
+  cost_bps: 5.0
+  cost_sweep_bps: [0, 5, 20]
+  trend_window: 200
+  vol_window: 20
+  vol_quantile: 0.8
+  train_size: 1260
+  test_size: 252
+  scheme: expanding

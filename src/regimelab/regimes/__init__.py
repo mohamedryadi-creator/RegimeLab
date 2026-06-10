@@ -5,5 +5,6 @@ interface so that strategies and experiments can treat them interchangeably.
 """
 
 from regimelab.regimes.base import RegimeModel
+from regimelab.regimes.heuristic import TrendRegime, VolatilityThresholdRegime
 
-__all__ = ["RegimeModel"]
+__all__ = ["RegimeModel", "TrendRegime", "VolatilityThresholdRegime"]

@@ -95,8 +95,10 @@ modeling and data-source choices.
       walk-forward split generator (expanding/rolling, embargo).
 - [x] **Phase 3 — Baselines.** Buy-and-hold and trend-following, plus a config-driven
       runner (`experiments/run_baselines.py`) with a cost sensitivity sweep.
-- [ ] **Phase 4 — Heuristic regimes.** Volatility-threshold and trend filters as
-      `RegimeModel`s; regime-gated baseline variants; cheap benchmark for Phase 5.
+- [x] **Phase 4 — Heuristic regimes.** Volatility-threshold and trend filters as
+      `RegimeModel`s with causality tests; `RegimeGatedStrategy` wrapper;
+      `walk_forward_predict` for stitched out-of-sample regime labels; head-to-head
+      experiment (`experiments/run_regime_comparison.py`).
 - [ ] **Phase 5 — Statistical regime models.** Gaussian HMM (and/or Markov-switching)
       with walk-forward refitting, filtered probabilities only, seed-controlled EM
       restarts, regime identification across refits; persistence diagnostics.
@@ -117,6 +119,9 @@ The first run downloads SPY history into `data/raw/` (requires
 
 ## Status
 
-Phases 0–3 complete: data layer, metrics, backtest engine, validation splits, and
-baselines are implemented and tested (including look-ahead bias tests). Next:
-heuristic regime filters (Phase 4), then statistical regime models (Phase 5).
+Phases 0–4 complete. First out-of-sample finding (SPY, 2005–2026, 5 bps costs,
+yearly walk-forward refits): gating buy-and-hold with a 20-day realized-volatility
+filter (flat when vol exceeds the training-sample 80% quantile) raises Sharpe from
+0.64 to 0.82 and cuts max drawdown from −55% to −34%, at 3.4× annual turnover.
+This is the benchmark the Phase 5 statistical models must beat. Treat as
+preliminary until Phase 6 adds bootstrap intervals and sub-period robustness.

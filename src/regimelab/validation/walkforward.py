@@ -17,7 +17,12 @@ test-period information into training.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pandas as pd
+
+if TYPE_CHECKING:
+    from regimelab.regimes.base import RegimeModel
 
 
 def walk_forward_splits(
@@ -55,3 +60,27 @@ def walk_forward_splits(
         splits.append((train, test))
         test_start += test_size
     return splits
+
+
+def walk_forward_predict(
+    model: "RegimeModel",
+    X: pd.DataFrame,
+    splits: list[tuple[pd.Index, pd.Index]],
+) -> pd.Series:
+    """Stitch together out-of-sample regime predictions across walk-forward splits.
+
+    For each split the model is refitted on the train slice only, then asked to
+    label the test dates. Prediction uses data up to the end of the test block
+    (trailing features need history that may start before the block), which is
+    safe because ``predict_regimes`` is causal — labels at test dates cannot
+    depend on later data.
+
+    Returns one label series covering all test blocks: the model's genuinely
+    out-of-sample regime history.
+    """
+    predictions = []
+    for train, test in splits:
+        model.fit(X.loc[train])
+        labels = model.predict_regimes(X.loc[X.index <= test.max()])
+        predictions.append(labels.loc[test])
+    return pd.concat(predictions)
